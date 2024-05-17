@@ -1,0 +1,25 @@
+# local package
+-e .
+
+# external requirements
+click
+Sphinx
+coverage
+awscli
+flake8
+fastapi
+mlflow
+fastapi
+boto3
+catboost
+joblib
+numpy
+requests
+geopandas
+shapely
+catboost
+scikit-learn
+geopy
+scipy
+pandas
+python-dotenv>=0.5.1
