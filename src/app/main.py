@@ -11,7 +11,7 @@ import uvicorn
 import asyncio
 import sys
 from dotenv import load_dotenv
-from src.data.make_dataset import add_features, json_to_dataframe  # , KREMLIN_COORDS, AVERAGE_WALK_SPEED, FEATURE2DROP
+from src.data.make_dataset import add_features, json_to_dataframe
 import io
 
 load_dotenv(override=True)
@@ -27,7 +27,7 @@ AWS_REGION = os.getenv('AWS_REGION')
 
 MLFLOW_TRACKING_URI = os.getenv('MLFLOW_TRACKING_URI')
 MLFLOW_S3_ENDPOINT_URL = os.getenv('MLFLOW_S3_ENDPOINT_URL')
-RUN_ID = os.getenv('RUND_ID')
+RUN_ID = os.getenv('RUN_ID')
 
 app = FastAPI()
 
@@ -70,6 +70,7 @@ def load_model_from_mlflow() -> mlflow.pyfunc.PyFuncModel:
 
 @app.post("/predict")
 async def predict_endpoint(request: Request) -> Response:
+    # Get JSON data from request
     json_data: str = await request.json()
     df: pd.DataFrame = json_to_dataframe(json_data)
 
