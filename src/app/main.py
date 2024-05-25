@@ -22,7 +22,7 @@ ERROR_MESSAGES = {
     "level_threshold": "Этаж не может быть больше 60"
 }
 
-
+'''
 load_dotenv(override=True)
 
 S3_BUCKET = str(os.getenv('S3_BUCKET'))
@@ -37,6 +37,21 @@ AWS_REGION = str(os.getenv('AWS_REGION'))
 MLFLOW_TRACKING_URI = str(os.getenv('MLFLOW_TRACKING_URI'))
 MLFLOW_S3_ENDPOINT_URL = str(os.getenv('MLFLOW_S3_ENDPOINT_URL'))
 RUN_ID = str(os.getenv('RUN_ID'))
+'''
+
+S3_BUCKET="f82863b2-mlflow"
+S3_DATASETS_DATASET="datasets/dataset.parquet"
+S3_DATASETS_GEO="datasets/geo.parquet"
+S3_DATASETS_STATIONS="datasets/stations.parquet"
+
+AWS_ACCESS_KEY_ID="D8RCKTWAAM1NUL408BD7"
+AWS_SECRET_ACCESS_KEY="GduSqOFFjQXPFMv8d2ic8Z3G4knApiWXrKEdLSB7"
+AWS_REGION="ru-1"
+
+MLFLOW_TRACKING_URI="http://147.45.140.222:8000/"
+MLFLOW_S3_ENDPOINT_URL="https://s3.timeweb.cloud"
+RUN_ID="runs:/5e546458f52f4b50b45b29e38de8df51/model"
+
 
 app = FastAPI()
 
