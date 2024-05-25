@@ -138,7 +138,6 @@ async def run_server():
     u_config = uvicorn.Config(
         "main:app",
         host="0.0.0.0",
-        port=8088,
         log_level="info",
         reload=True)
     server = uvicorn.Server(u_config)
