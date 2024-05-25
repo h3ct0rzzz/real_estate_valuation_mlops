@@ -1,16 +1,14 @@
-# local package
--e .
-
 # external requirements
 click
 Sphinx
 coverage
-awscli
+awscli==1.32.113
 flake8
 fastapi
 mlflow
 fastapi
 boto3
+botocore==1.34.113
 catboost
 joblib
 numpy
