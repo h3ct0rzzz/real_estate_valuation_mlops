@@ -24,7 +24,7 @@ ERROR_MESSAGES = {
 
 load_dotenv(override=True)
 
-S3_BUCKET = os.getenv('S3_BUCKET')
+S3_BUCKET = str(os.getenv('S3_BUCKET'))
 S3_DATASETS_DATASET = os.getenv('S3_DATASETS_DATASET')
 S3_DATASETS_GEO = os.getenv('S3_DATASETS_GEO')
 S3_DATASETS_STATIONS = os.getenv('S3_DATASETS_STATIONS')
