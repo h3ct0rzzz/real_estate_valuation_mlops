@@ -81,59 +81,59 @@ def load_model_from_mlflow() -> mlflow.pyfunc.PyFuncModel:
 
 @app.post("/predict")
 async def predict_endpoint(request: Request) -> Response:
-    try:
-        json_data: dict = await request.json()
-        if not json_data:
+    #try:
+    json_data: dict = await request.json()
+    if not json_data:
+        return Response(status_code=400,
+                        content=json.dumps({"data": None,
+                                            "error": "Invalid request body",
+                                            "status": 400}),
+                        media_type="application/json")
+
+    df: pd.DataFrame = json_to_dataframe(json_data)
+    if df.empty:
+        return Response(status_code=400,
+                        content=json.dumps({"data": None,
+                                            "error": "Invalid JSON data",
+                                            "status": 400}),
+                        media_type="application/json")
+
+    data = df.to_dict('records')[0]
+
+    error_map = {
+        "building_type": lambda x: x == "Деревянный" and data["levels"] > 4,
+        "levels_comparison": lambda x: data["levels"] < data["level"],
+        "area_comparison": lambda x: data["area"] < data["kitchen_area"],
+        "level_threshold": lambda x: data["level"] > 60
+    }
+
+    for field, check in error_map.items():
+        if check(field):
+            error_message = ERROR_MESSAGES[field]
             return Response(status_code=400,
                             content=json.dumps({"data": None,
-                                                "error": "Invalid request body",
+                                                "error": error_message,
                                                 "status": 400}),
                             media_type="application/json")
 
-        df: pd.DataFrame = json_to_dataframe(json_data)
-        if df.empty:
-            return Response(status_code=400,
-                            content=json.dumps({"data": None,
-                                                "error": "Invalid JSON data",
-                                                "status": 400}),
-                            media_type="application/json")
+    datasets: Dict[str, pd.DataFrame] = load_datasets()
+    geo: pd.DataFrame = datasets['geo']
+    stations: pd.DataFrame = datasets['stations']
 
-        data = df.to_dict('records')[0]
+    model: mlflow.pyfunc.PyFuncModel = load_model_from_mlflow()
 
-        error_map = {
-            "building_type": lambda x: x == "Деревянный" and data["levels"] > 4,
-            "levels_comparison": lambda x: data["levels"] < data["level"],
-            "area_comparison": lambda x: data["area"] < data["kitchen_area"],
-            "level_threshold": lambda x: data["level"] > 60
-        }
+    df: pd.DataFrame = add_features(df, geo, stations)
 
-        for field, check in error_map.items():
-            if check(field):
-                error_message = ERROR_MESSAGES[field]
-                return Response(status_code=400,
-                                content=json.dumps({"data": None,
-                                                    "error": error_message,
-                                                    "status": 400}),
-                                media_type="application/json")
+    predict = model.predict(df.drop(["street", "house_number"], axis=1))
+    df["price"] = np.expm1(predict) * df["area"]
 
-        datasets: Dict[str, pd.DataFrame] = load_datasets()
-        geo: pd.DataFrame = datasets['geo']
-        stations: pd.DataFrame = datasets['stations']
-
-        model: mlflow.pyfunc.PyFuncModel = load_model_from_mlflow()
-
-        #df: pd.DataFrame = add_features(df, geo, stations)
-
-        #predict = model.predict(df.drop(["street", "house_number"], axis=1))
-        #df["price"] = np.expm1(predict) * df["area"]
-
-        return Response(status_code=200, content=json.dumps(
-            {"data": df.to_dict(orient='records'), "error": None, "status": 200}), media_type="application/json")
-
+    return Response(status_code=200, content=json.dumps(
+        {"data": df.to_dict(orient='records'), "error": None, "status": 200}), media_type="application/json")
+    '''
     except Exception as e:
         return Response(status_code=500, content=json.dumps(
             {"data": None, "error": str(e), "status": 500}), media_type="application/json")
-
+    '''
 
 async def run_server():
     u_config = uvicorn.Config(
