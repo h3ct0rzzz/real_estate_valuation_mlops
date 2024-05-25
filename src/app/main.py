@@ -11,13 +11,9 @@ import uvicorn
 import asyncio
 import sys
 from dotenv import load_dotenv
-from starlette.responses import JSONResponse
 from src.data.make_dataset import add_features, json_to_dataframe
 import io
-import logging
 
-logging.basicConfig(level=logging.DEBUG)
-os.environ['MLFLOW_LOGGING_LEVEL'] = 'DEBUG'
 
 ERROR_MESSAGES = {
     "building_type": "Для деревянного здания количество этажей не может быть больше 4",
@@ -52,13 +48,16 @@ mlflow_client: MlflowClient = MlflowClient(tracking_uri=MLFLOW_TRACKING_URI)
 datasets: Dict[str, pd.DataFrame] = {}
 model: mlflow.pyfunc.PyFuncModel = None
 
+
 def get_s3_object(s3_client: boto3.client, key: str) -> Dict[str, Any]:
     obj = s3_client.get_object(Bucket=S3_BUCKET, Key=key)
     return obj
 
+
 def read_dataset_from_s3(obj):
     buffer = io.BytesIO(obj['Body'].read())
     return pd.read_parquet(buffer)
+
 
 def load_datasets() -> Dict[str, pd.DataFrame]:
     if not datasets:
@@ -71,6 +70,7 @@ def load_datasets() -> Dict[str, pd.DataFrame]:
         # datasets['dataset'] = reduce_mem_usage(datasets['dataset'])
     return datasets
 
+
 def load_model_from_mlflow() -> mlflow.pyfunc.PyFuncModel:
     global model
     if not model:
@@ -78,31 +78,25 @@ def load_model_from_mlflow() -> mlflow.pyfunc.PyFuncModel:
         model = mlflow.pyfunc.load_model(logged_model)
     return model
 
+
 @app.post("/predict")
 async def predict_endpoint(request: Request) -> Response:
     try:
         json_data: dict = await request.json()
         if not json_data:
-            return JSONResponse(status_code=400, content={"data": None, "error": "Invalid request body", "status": 400})
-
-        data = {
-            "region": str(json_data["region"]),
-            "city": str(json_data["city"]),
-            "building_type": str(json_data["building_type"]),
-            "level": int(json_data["level"]),
-            "levels": int(json_data["levels"]),
-            "rooms": str(json_data["rooms"]),
-            "area": float(json_data["area"]),
-            "kitchen_area": float(json_data["kitchen_area"]),
-            "object_type": str(json_data["object_type"]),
-            "apartment_type": str(json_data["apartment_type"]),
-            "street": str(json_data["street"]),
-            "house_number": str(json_data["house_number"]),
-        }
+            return Response(status_code=400,
+                            content=json.dumps({"data": None,
+                                                "error": "Invalid request body",
+                                                "status": 400}),
+                            media_type="application/json")
 
         df: pd.DataFrame = json_to_dataframe(json_data)
         if df.empty:
-            return JSONResponse(status_code=400, content={"data": None, "error": "Invalid JSON data", "status": 400})
+            return Response(status_code=400,
+                            content=json.dumps({"data": None,
+                                                "error": "Invalid JSON data",
+                                                "status": 400}),
+                            media_type="application/json")
 
         data = df.to_dict('records')[0]
 
@@ -116,47 +110,40 @@ async def predict_endpoint(request: Request) -> Response:
         for field, check in error_map.items():
             if check(field):
                 error_message = ERROR_MESSAGES[field]
-                return JSONResponse(status_code=400, content={"data": None, "error": error_message, "status": 400})
+                return Response(status_code=400,
+                                content=json.dumps({"data": None,
+                                                    "error": error_message,
+                                                    "status": 400}),
+                                media_type="application/json")
 
-        try:
-            datasets: Dict[str, pd.DataFrame] = load_datasets()
-            if not datasets or 'geo' not in datasets or 'stations' not in datasets:
-                return JSONResponse(status_code=400, content={"data": None, "error": "Invalid datasets", "status": 400})
+        datasets: Dict[str, pd.DataFrame] = load_datasets()
+        geo: pd.DataFrame = datasets['geo']
+        stations: pd.DataFrame = datasets['stations']
 
-            geo: pd.DataFrame = datasets['geo']
-            stations: pd.DataFrame = datasets['stations']
+        model: mlflow.pyfunc.PyFuncModel = load_model_from_mlflow()
 
-            model: mlflow.pyfunc.PyFuncModel = load_model_from_mlflow()
-            if not model:
-                return JSONResponse(status_code=400, content={"data": None, "error": "Invalid model", "status": 400})
+        df: pd.DataFrame = add_features(df, geo, stations)
 
-            df: pd.DataFrame = add_features(df, geo, stations)
-            if df.empty:
-                return JSONResponse(status_code=400,
-                                    content={"data": None, "error": "Invalid DataFrame", "status": 400})
+        predict = model.predict(df.drop(["street", "house_number"], axis=1))
+        df["price"] = np.expm1(predict) * df["area"]
 
-            predict = model.predict(df.drop(["street", "house_number"], axis=1))
-            if predict is None:
-                return JSONResponse(status_code=400,
-                                    content={"data": None, "error": "Invalid prediction", "status": 400})
-
-            df["price"] = np.expm1(predict) * df["area"]
-        except Exception as e:
-            return JSONResponse(status_code=500, content={"data": None, "error": str(e), "status": 500})
-
-        return JSONResponse(status_code=200, content={"data": df.to_dict(), "error": None, "status": 200})
+        return Response(status_code=200, content=json.dumps(
+            {"data": df.to_dict(), "error": None, "status": 200}), media_type="application/json")
     except Exception as e:
-        return JSONResponse(status_code=500, content={"data": None, "error": str(e), "status": 500})
+        return Response(status_code=500, content=json.dumps(
+            {"data": None, "error": str(e), "status": 500}), media_type="application/json")
+
 
 async def run_server():
     u_config = uvicorn.Config(
         "main:app",
         host="0.0.0.0",
-        port=8080,
+        port=8088,
         log_level="info",
         reload=True)
     server = uvicorn.Server(u_config)
     await server.serve()
+
 
 async def main():
     tasks = [
@@ -164,6 +151,7 @@ async def main():
     ]
 
     await asyncio.gather(*tasks, return_exceptions=True)
+
 
 if __name__ == '__main__':
     if AWS_ACCESS_KEY_ID is None or AWS_SECRET_ACCESS_KEY is None:
