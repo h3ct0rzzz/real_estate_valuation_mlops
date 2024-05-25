@@ -31,13 +31,15 @@ def json_to_dataframe(json_data: dict) -> pd.DataFrame:
 
 def add_features(df: pd.DataFrame, geo, stations) -> pd.DataFrame:
     df = (
-        df.pipe(get_geo_coordinates)
-        .pipe(process_data, geo=geo)
-        .pipe(add_nearest_metro_features, stations=stations)
-        .pipe(add_kremlin_distance_feature, kremlin_coords=KREMLIN_COORDS)
-        .pipe(add_walk_time_to_metro_feature, average_walk_speed=AVERAGE_WALK_SPEED)
-        .pipe(process_df)
-        .drop(FEATURE2DROP, axis=1)
-        .pipe(reduce_mem_usage)
-    )
+        df.pipe(get_geo_coordinates).pipe(
+            process_data,
+            geo=geo).pipe(
+            add_nearest_metro_features,
+            stations=stations).pipe(
+                add_kremlin_distance_feature,
+                kremlin_coords=KREMLIN_COORDS).pipe(
+                    add_walk_time_to_metro_feature,
+                    average_walk_speed=AVERAGE_WALK_SPEED) .pipe(process_df).drop(
+                        FEATURE2DROP,
+            axis=1) .pipe(reduce_mem_usage))
     return df

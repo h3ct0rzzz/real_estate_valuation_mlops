@@ -14,6 +14,14 @@ from dotenv import load_dotenv
 from src.data.make_dataset import add_features, json_to_dataframe
 import io
 
+
+ERROR_MESSAGES = {
+    "building_type": "Для деревянного здания количество этажей не может быть больше 4",
+    "levels_comparison": "Количество этажей не может быть меньше текущего этажа",
+    "area_comparison": "Общая площадь не может быть меньше площади кухни",
+    "level_threshold": "Этаж не может быть больше 60"
+}
+
 load_dotenv(override=True)
 
 S3_BUCKET = os.getenv('S3_BUCKET')
@@ -41,8 +49,8 @@ datasets: Dict[str, pd.DataFrame] = {}
 model: mlflow.pyfunc.PyFuncModel = None
 
 
-def get_s3_object(s3: boto3.client, key: str) -> Dict[str, Any]:
-    obj = s3.get_object(Bucket=S3_BUCKET, Key=key)
+def get_s3_object(s3_client: boto3.client, key: str) -> Dict[str, Any]:
+    obj = s3_client.get_object(Bucket=S3_BUCKET, Key=key)
     return obj
 
 
@@ -55,8 +63,11 @@ def load_datasets() -> Dict[str, pd.DataFrame]:
     if not datasets:
         obj_geo = get_s3_object(s3, S3_DATASETS_GEO)
         obj_stations = get_s3_object(s3, S3_DATASETS_STATIONS)
+        # obj_datasets = get_s3_object(s3, S3_DATASETS_DATASET)
         datasets['geo'] = read_dataset_from_s3(obj_geo)
         datasets['stations'] = read_dataset_from_s3(obj_stations)
+        # datasets['dataset'] = read_dataset_from_s3(obj_datasets)
+        # datasets['dataset'] = reduce_mem_usage(datasets['dataset'])
     return datasets
 
 
@@ -70,26 +81,66 @@ def load_model_from_mlflow() -> mlflow.pyfunc.PyFuncModel:
 
 @app.post("/predict")
 async def predict_endpoint(request: Request) -> Response:
-    # Get JSON data from request
-    json_data: str = await request.json()
-    df: pd.DataFrame = json_to_dataframe(json_data)
+    try:
+        json_data: dict = await request.json()
+        if not json_data:
+            return Response(status_code=400,
+                            content=json.dumps({"data": None,
+                                                "error": "Invalid request body",
+                                                "status": 400}),
+                            media_type="application/json")
 
-    datasets: Dict[str, pd.DataFrame] = load_datasets()
-    geo: pd.DataFrame = datasets['geo']
-    stations: pd.DataFrame = datasets['stations']
+        df: pd.DataFrame = json_to_dataframe(json_data)
+        if df.empty:
+            return Response(status_code=400,
+                            content=json.dumps({"data": None,
+                                                "error": "Invalid JSON data",
+                                                "status": 400}),
+                            media_type="application/json")
 
-    model: mlflow.pyfunc.PyFuncModel = load_model_from_mlflow()
+        data = df.to_dict('records')[0]
 
-    df: pd.DataFrame = add_features(df, geo, stations)
+        error_map = {
+            "building_type": lambda x: x == "Деревянный" and data["levels"] > 4,
+            "levels_comparison": lambda x: data["levels"] < data["level"],
+            "area_comparison": lambda x: data["area"] < data["kitchen_area"],
+            "level_threshold": lambda x: data["level"] > 60
+        }
 
-    predict = model.predict(df.drop(["street", "house_number"], axis=1))
-    df["price"] = np.expm1(predict) * df["area"]
+        for field, check in error_map.items():
+            if check(field):
+                error_message = ERROR_MESSAGES[field]
+                return Response(status_code=400,
+                                content=json.dumps({"data": None,
+                                                    "error": error_message,
+                                                    "status": 400}),
+                                media_type="application/json")
 
-    return Response(content=json.dumps(df.to_dict()), media_type="application/json")
+        datasets: Dict[str, pd.DataFrame] = load_datasets()
+        geo: pd.DataFrame = datasets['geo']
+        stations: pd.DataFrame = datasets['stations']
+
+        model: mlflow.pyfunc.PyFuncModel = load_model_from_mlflow()
+
+        df: pd.DataFrame = add_features(df, geo, stations)
+
+        predict = model.predict(df.drop(["street", "house_number"], axis=1))
+        df["price"] = np.expm1(predict) * df["area"]
+
+        return Response(status_code=200, content=json.dumps(
+            {"data": df.to_dict(), "error": None, "status": 200}), media_type="application/json")
+    except Exception as e:
+        return Response(status_code=500, content=json.dumps(
+            {"data": None, "error": str(e), "status": 500}), media_type="application/json")
 
 
 async def run_server():
-    u_config = uvicorn.Config("main:app", host="0.0.0.0", port=8088, log_level="info", reload=True)
+    u_config = uvicorn.Config(
+        "main:app",
+        host="0.0.0.0",
+        port=8088,
+        log_level="info",
+        reload=True)
     server = uvicorn.Server(u_config)
     await server.serve()
 

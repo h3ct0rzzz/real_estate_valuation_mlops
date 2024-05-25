@@ -22,4 +22,5 @@ scikit-learn
 geopy
 scipy
 pandas
+uvicorn
 python-dotenv>=0.5.1
