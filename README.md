@@ -1,8 +1,7 @@
 real_estate_valuation_mlops
 ==============================
 
-```latex
-H(y, \hat{y}) = -\sum_{i} y_i \log(\hat{y}_i)
+$H(y, \hat{y}) = -\sum_{i} y_i \log(\hat{y}_i)$
 
 Project Organization
 ------------
