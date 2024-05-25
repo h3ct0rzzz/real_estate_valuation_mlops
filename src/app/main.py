@@ -128,7 +128,7 @@ async def predict_endpoint(request: Request) -> Response:
         df["price"] = np.expm1(predict) * df["area"]
 
         return Response(status_code=200, content=json.dumps(
-            {"data": df.to_dict(), "error": None, "status": 200}), media_type="application/json")
+            {"data": df.to_dict(orient='records'), "error": None, "status": 200}), media_type="application/json")
     except Exception as e:
         return Response(status_code=500, content=json.dumps(
             {"data": None, "error": str(e), "status": 500}), media_type="application/json")
