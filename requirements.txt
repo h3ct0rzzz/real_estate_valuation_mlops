@@ -21,6 +21,4 @@ geopy
 scipy
 pandas
 uvicorn
-starlette
-logging
 python-dotenv>=0.5.1
