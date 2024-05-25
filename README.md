@@ -1,7 +1,8 @@
 real_estate_valuation_mlops
 ==============================
 
-A short description of the project.
+```latex
+H(y, \hat{y}) = -\sum_{i} y_i \log(\hat{y}_i)
 
 Project Organization
 ------------
