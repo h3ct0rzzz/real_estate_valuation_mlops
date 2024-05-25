@@ -122,15 +122,14 @@ async def predict_endpoint(request: Request) -> Response:
 
         model: mlflow.pyfunc.PyFuncModel = load_model_from_mlflow()
 
-        df: pd.DataFrame = add_features(df, geo, stations)
+        #df: pd.DataFrame = add_features(df, geo, stations)
 
-        predict = model.predict(df.drop(["street", "house_number"], axis=1))
-        df["price"] = np.expm1(predict) * df["area"]
+        #predict = model.predict(df.drop(["street", "house_number"], axis=1))
+        #df["price"] = np.expm1(predict) * df["area"]
 
-        #return Response(status_code=200, content=json.dumps(
-            #{"data": df.to_dict(orient='records'), "error": None, "status": 200}), media_type="application/json")
-        return Response(status_code=200, content=json.dumps({"data": [], "error": None, "status": 200}),
-                        media_type="application/json")
+        return Response(status_code=200, content=json.dumps(
+            {"data": df.to_dict(orient='records'), "error": None, "status": 200}), media_type="application/json")
+
     except Exception as e:
         return Response(status_code=500, content=json.dumps(
             {"data": None, "error": str(e), "status": 500}), media_type="application/json")
