@@ -12,9 +12,12 @@ import asyncio
 import sys
 from dotenv import load_dotenv
 from starlette.responses import JSONResponse
-
 from src.data.make_dataset import add_features, json_to_dataframe
 import io
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+os.environ['MLFLOW_LOGGING_LEVEL'] = 'DEBUG'
 
 ERROR_MESSAGES = {
     "building_type": "Для деревянного здания количество этажей не может быть больше 4",
@@ -82,6 +85,21 @@ async def predict_endpoint(request: Request) -> Response:
         if not json_data:
             return JSONResponse(status_code=400, content={"data": None, "error": "Invalid request body", "status": 400})
 
+        data = {
+            "region": str(json_data["region"]),
+            "city": str(json_data["city"]),
+            "building_type": str(json_data["building_type"]),
+            "level": int(json_data["level"]),
+            "levels": int(json_data["levels"]),
+            "rooms": str(json_data["rooms"]),
+            "area": float(json_data["area"]),
+            "kitchen_area": float(json_data["kitchen_area"]),
+            "object_type": str(json_data["object_type"]),
+            "apartment_type": str(json_data["apartment_type"]),
+            "street": str(json_data["street"]),
+            "house_number": str(json_data["house_number"]),
+        }
+
         df: pd.DataFrame = json_to_dataframe(json_data)
         if df.empty:
             return JSONResponse(status_code=400, content={"data": None, "error": "Invalid JSON data", "status": 400})
@@ -100,16 +118,31 @@ async def predict_endpoint(request: Request) -> Response:
                 error_message = ERROR_MESSAGES[field]
                 return JSONResponse(status_code=400, content={"data": None, "error": error_message, "status": 400})
 
-        datasets: Dict[str, pd.DataFrame] = load_datasets()
-        geo: pd.DataFrame = datasets['geo']
-        stations: pd.DataFrame = datasets['stations']
+        try:
+            datasets: Dict[str, pd.DataFrame] = load_datasets()
+            if not datasets or 'geo' not in datasets or 'stations' not in datasets:
+                return JSONResponse(status_code=400, content={"data": None, "error": "Invalid datasets", "status": 400})
 
-        model: mlflow.pyfunc.PyFuncModel = load_model_from_mlflow()
+            geo: pd.DataFrame = datasets['geo']
+            stations: pd.DataFrame = datasets['stations']
 
-        df: pd.DataFrame = add_features(df, geo, stations)
+            model: mlflow.pyfunc.PyFuncModel = load_model_from_mlflow()
+            if not model:
+                return JSONResponse(status_code=400, content={"data": None, "error": "Invalid model", "status": 400})
 
-        predict = model.predict(df.drop(["street", "house_number"], axis=1))
-        df["price"] = np.expm1(predict) * df["area"]
+            df: pd.DataFrame = add_features(df, geo, stations)
+            if df.empty:
+                return JSONResponse(status_code=400,
+                                    content={"data": None, "error": "Invalid DataFrame", "status": 400})
+
+            predict = model.predict(df.drop(["street", "house_number"], axis=1))
+            if predict is None:
+                return JSONResponse(status_code=400,
+                                    content={"data": None, "error": "Invalid prediction", "status": 400})
+
+            df["price"] = np.expm1(predict) * df["area"]
+        except Exception as e:
+            return JSONResponse(status_code=500, content={"data": None, "error": str(e), "status": 500})
 
         return JSONResponse(status_code=200, content={"data": df.to_dict(), "error": None, "status": 200})
     except Exception as e:
@@ -119,7 +152,7 @@ async def run_server():
     u_config = uvicorn.Config(
         "main:app",
         host="0.0.0.0",
-        port=8000,
+        port=8080,
         log_level="info",
         reload=True)
     server = uvicorn.Server(u_config)
