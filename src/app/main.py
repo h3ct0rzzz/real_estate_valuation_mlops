@@ -22,6 +22,7 @@ ERROR_MESSAGES = {
     "level_threshold": "Этаж не может быть больше 60"
 }
 
+
 load_dotenv(override=True)
 
 S3_BUCKET = str(os.getenv('S3_BUCKET'))
