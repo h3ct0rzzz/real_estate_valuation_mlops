@@ -41,6 +41,19 @@ RUN_ID = str(os.getenv('RUN_ID'))
 
 app = FastAPI()
 
+origins = [
+    "http://localhost",
+    "http://localhost:8088",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 s3: boto3.client = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY_ID,
                                 aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
                                 endpoint_url=MLFLOW_S3_ENDPOINT_URL)
