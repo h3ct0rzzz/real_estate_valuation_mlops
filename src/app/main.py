@@ -42,6 +42,7 @@ RUN_ID = str(os.getenv('RUN_ID'))
 
 app = FastAPI()
 
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
