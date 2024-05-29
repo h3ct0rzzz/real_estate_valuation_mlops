@@ -39,7 +39,5 @@ def add_features(df: pd.DataFrame, geo, stations) -> pd.DataFrame:
                 add_kremlin_distance_feature,
                 kremlin_coords=KREMLIN_COORDS).pipe(
                     add_walk_time_to_metro_feature,
-                    average_walk_speed=AVERAGE_WALK_SPEED) .pipe(process_df).drop(
-                        FEATURE2DROP,
-            axis=1) .pipe(reduce_mem_usage))
+                    average_walk_speed=AVERAGE_WALK_SPEED).pipe(process_df).pipe(reduce_mem_usage))
     return df
