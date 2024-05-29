@@ -15,6 +15,17 @@ from dotenv import load_dotenv
 from src.data.make_dataset import add_features, json_to_dataframe
 import io
 
+FEATURE2DROP = [
+    "geo_lat",
+    "geo_lon",
+    "index_right",
+    "lat",
+    "osm_transport_stop_points_in_0.01",
+    "lng",
+    "osm_crossing_points_in_0.01",
+    "street", 
+    "house_number"
+]
 
 ERROR_MESSAGES = {
     "building_type": "Для деревянного здания количество этажей не может быть больше 4",
@@ -136,7 +147,7 @@ async def predict_endpoint(request: Request) -> Response:
 
     df: pd.DataFrame = add_features(df, geo, stations)
 
-    predict = model.predict(df.drop(["street", "house_number"], axis=1))
+    predict = model.predict(df.drop(FEATURE2DROP, axis=1))
     df["price"] = np.expm1(predict) * df["area"]
 
     return Response(status_code=200, content=json.dumps(
