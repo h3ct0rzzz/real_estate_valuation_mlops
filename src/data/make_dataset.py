@@ -12,16 +12,6 @@ from src.features.build_features import (
 KREMLIN_COORDS = (55.7520, 37.6175)
 AVERAGE_WALK_SPEED = 5
 
-FEATURE2DROP = [
-    "geo_lat",
-    "geo_lon",
-    "index_right",
-    "lat",
-    "osm_transport_stop_points_in_0.01",
-    "lng",
-    "osm_crossing_points_in_0.01",
-]
-
 
 def json_to_dataframe(json_data: dict) -> pd.DataFrame:
     data: dict = json_data
