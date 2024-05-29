@@ -9,6 +9,7 @@ from src.features.build_features import (
     reduce_mem_usage,
 )
 
+
 KREMLIN_COORDS = (55.7520, 37.6175)
 AVERAGE_WALK_SPEED = 5
 
