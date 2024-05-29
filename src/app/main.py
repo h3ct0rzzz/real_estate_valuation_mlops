@@ -138,7 +138,7 @@ async def predict_endpoint(request: Request) -> Response:
     df['area'] = df['area'].astype(np.float32)
     df['kitchen_area'] = df['area'].astype(np.float32)
     predict = model.predict(df.drop(["street", "house_number", "geo_lat", "geo_lon"], axis=1))
-     df["price"] = np.expm1(predict) * df["area"]
+    df["price"] = np.expm1(predict) * df["area"]
 
     return Response(status_code=200, content=json.dumps(
         {"data": df.to_dict(orient='records'), "error": None, "status": 200}), media_type="application/json")
