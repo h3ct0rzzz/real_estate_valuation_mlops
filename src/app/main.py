@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Request, Response
-from fastapi.middleware.cors import CORSMiddleware
 import json
 import pandas as pd
 import os
@@ -38,14 +37,6 @@ MLFLOW_S3_ENDPOINT_URL = str(os.getenv('MLFLOW_S3_ENDPOINT_URL'))
 RUN_ID = str(os.getenv('RUN_ID'))
 
 app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 s3: boto3.client = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY_ID,
                                 aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
@@ -128,10 +119,8 @@ async def predict_endpoint(request: Request) -> Response:
         model: mlflow.pyfunc.PyFuncModel = load_model_from_mlflow()
 
         df: pd.DataFrame = add_features(df, geo, stations)
-        df['area'] = df['area'].astype(np.float32)
-        df['kitchen_area'] = df['area'].astype(np.float32)
 
-        predict = model.predict(df.drop(["street", "house_number", "geo_lat", "geo_lon"], axis=1))
+        predict = model.predict(df.drop(["street", "house_number"], axis=1))
         df["price"] = np.expm1(predict) * df["area"]
 
         df.rename(columns={
@@ -171,6 +160,7 @@ async def main():
     tasks = [
         run_server(),
     ]
+
     await asyncio.gather(*tasks, return_exceptions=True)
 
 
